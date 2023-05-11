@@ -1,0 +1,82 @@
+﻿@page "/listing/viewlisting/{id}"
+@inject IListingService ListingService
+@inject NavigationManager navManager
+@inject HymnCenter.Client.Shared.PageHistoryState PageHistoryState
+
+<h1>View Listing</h1>
+<br />
+
+<table class="table col-md-6">
+    <tbody>
+        <tr>
+            <th scope="row">Id</th>
+            <td>@listing.ListingId</td>
+        </tr>
+        <tr>
+            <th scope="row">Header</th>
+            <td>@listing.Header</td>
+        </tr>
+        <tr>
+            <th scope="row">Date</th>
+            <td>@listing.Date</td>
+        </tr>
+        <tr>
+            <th scope="row">Footer</th>
+            <td>@listing.Footer</td>
+        </tr>
+    </tbody>
+</table>
+
+<hr />
+<h3>Hymns</h3>
+<hr />
+
+<table class="table">
+    <thead class="thead-light">
+        <tr>
+            <th>Title</th>
+            <th>Scale</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (Hymn hymn in listing.Hymns)
+        {
+            <tr>
+                <td>@hymn.Title</td>
+                <td>@hymn.Scale</td>
+
+            </tr>
+        }
+    </tbody>
+</table>
+
+<hr />
+
+<div class="form-group">
+    @if (PageHistoryState.CanGoBack())
+    {
+        <NavLink href="@PageHistoryState.GetGoBackPage()" class="btn btn-link">Back</NavLink>
+    }
+    else
+    {
+        <NavLink href="/listing/1" class="btn btn-link">Back</NavLink>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Id { get; set; }
+
+    Listing listing = new Listing
+        {
+            Header = "",
+            Date = null,
+            Footer = "",
+            Hymns = new List<Hymn>()
+        };
+
+    protected async override Task OnParametersSetAsync()
+    {
+        listing = await ListingService.GetListing(int.Parse(Id));
+    }
+}

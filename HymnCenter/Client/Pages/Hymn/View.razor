@@ -1,0 +1,84 @@
+﻿@page "/hymn/viewhymn/{id}"
+@using System.Collections.ObjectModel;
+@inject IHymnService HymnService
+@inject NavigationManager navManager
+@inject HymnCenter.Client.Shared.PageHistoryState PageHistoryState
+
+<h1>View Hymn</h1>
+<br />
+
+<table class="table col-md-6">
+    <tbody>
+        <tr>
+            <th scope="row">Id</th>
+            <td>@hymn.HymnId</td>
+        </tr>
+        <tr>
+            <th scope="row">Title</th>
+            <td>@hymn.Title</td>
+        </tr>
+        <tr>
+            <th scope="row">Scale</th>
+            <td>@hymn.Scale</td>
+        </tr>
+        <tr>
+            <th scope="row">Lyrics</th>
+            <td>@hymn.Lyrics</td>
+        </tr>
+    </tbody>
+</table>
+
+<hr />
+<h3>Categories</h3>
+<hr />
+
+<table class="table">
+    <thead class="thead-light">
+        <tr>
+            <th>Categories</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (Category category in hymn.Categories)
+        {
+            <tr>
+                <td>@category.CategoryName</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<hr />
+
+<div class="form-group">
+    @if (PageHistoryState.CanGoBack())
+    {
+        <NavLink href="@PageHistoryState.GetGoBackPage()" class="btn btn-link">Back</NavLink>
+    }
+    else
+    {
+        <NavLink href="/hymn/1" class="btn btn-link">Back</NavLink>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Id { get; set; }
+
+    Hymn hymn = new Hymn
+        {
+            Title = "",
+            Scale = "",
+            Lyrics = "",
+            Listings = new List<Listing>(),
+            Categories = new List<Category>
+            {
+                new Category { CategoryName = "" }
+            }
+        };
+
+    protected async override Task OnParametersSetAsync()
+    {
+        hymn = await HymnService.GetHymn(int.Parse(Id));
+    }
+}

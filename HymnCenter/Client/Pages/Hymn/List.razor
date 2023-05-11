@@ -1,0 +1,150 @@
+﻿@page "/hymn/{Page}"
+@inject Services.IHymnService HymnService
+@inject Services.IUserService UserService
+@inject Microsoft.AspNetCore.Components.NavigationManager UriHelper
+@inject HymnCenter.Client.Shared.PageHistoryState PageHistoryState
+
+<h1>Hymns</h1>
+<br/>
+
+<div class="row mb-3">
+    <div class="col-md-7">
+        @if(LoggedIn)
+        { 
+            <NavLink href="/hymn/createhymn" class="btn btn-sm btn-success mb-2">Add Hymn</NavLink>
+        }
+    </div>
+    <div class="input-group col-md-5 text-md-right">
+        <input name="HymnSearchInput" type="text" class="form-control" placeholder="Hymn Name" @bind="this.SearchTerm" @onkeyup="SearchBoxKeyPress" />
+        <div class="input-group-btn">
+            <button name="HymnSearchButton" class="btn btn-default" @onclick="SearchClick">
+                <i class="oi oi-magnifying-glass" title="search" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div class="input-group-btn">
+            <button name="HymnSearchClear" class="btn btn-default" @onclick="ClearSearch">
+                <i class="oi oi-x" title="clear" aria-hidden="true"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+@if (hymns == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th style="width:33%">Title</th>
+                <th style="width:33%">Scale</th>
+                <th style="width:33%">Categories</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var hymn in hymns.Results)
+            {
+                <tr>
+                    <td>@hymn.Title</td>
+                    <td>@hymn.Scale</td>
+                    <td>@PringCategories(hymn)</td>
+                    <td style="white-space: nowrap">
+                        <NavLink href="@($"/hymn/viewhymn/{hymn.HymnId}")" class="oi oi-eye text-primary mr-3 nounderline"></NavLink>
+                        @if (LoggedIn)
+                        {
+                            <NavLink href="@($"/hymn/updatehymn/{hymn.HymnId}")" class="oi oi-pencil text-warning mr-2 nounderline"></NavLink>
+                                @if (hymn.IsDeleting) 
+                                {
+                                    <button @onclick="@(() => DeleteHymn(hymn))" disabled="@hymn.IsDeleting" class=" btn btn-link oi oi-trash text-danger mr-1 nounderline">
+                                        <span class="spinner-border spinner-border-sm"></span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button @onclick="@(() => DeleteHymn(hymn))" disabled="@hymn.IsDeleting" class=" btn btn-link oi oi-trash text-danger mr-1 nounderline">
+                                        <span></span>
+                                    </button>
+                                }
+                        }
+                    </td>
+                </tr> 
+            }
+        </tbody>
+    </table>
+    <Pager Result=@hymns PageChanged=PagerPageChanged />
+}
+
+@code {
+    [Parameter]
+    public string Page { get; set; } = "1";
+    [Parameter]
+    public string SearchTerm { get; set; } = string.Empty;
+    protected PagedResult<Hymn> hymns = new PagedResult<Hymn>();
+
+    public bool LoggedIn
+    {
+        get { return UserService.User != null; }
+    }
+
+    protected override void OnInitialized()
+    {
+        PageHistoryState.AddPageToHistory(UriHelper.Uri);
+        base.OnInitialized();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        hymns = await HymnService.GetHymns(null, Page, null);
+        PageHistoryState.AddPageToHistory(UriHelper.Uri);
+    }
+
+    protected async Task SearchBoxKeyPress(KeyboardEventArgs ev)
+    {
+        if (ev.Key == "Enter")
+        {
+            await SearchClick();
+        }
+    }
+
+    protected async Task SearchClick()
+    {
+        if (string.IsNullOrEmpty(SearchTerm))
+        {
+            hymns = await HymnService.GetHymns(null, Page, null);
+            return;
+        }
+        hymns = await HymnService.GetHymns(SearchTerm, Page, null);
+        StateHasChanged();
+    }
+
+    protected async Task ClearSearch()
+    {
+        SearchTerm = string.Empty;
+        hymns = await HymnService.GetHymns(SearchTerm, Page, null);
+        PageHistoryState.AddPageToHistory(UriHelper.Uri);
+        StateHasChanged();
+    }
+
+    protected void PagerPageChanged(int page)
+    {
+        UriHelper.NavigateTo("/hymn/" + page);
+        PageHistoryState.AddPageToHistory(UriHelper.Uri);
+    }
+
+    private async void DeleteHymn(Hymn _hymn)
+    {
+        var hymn = _hymn;
+        hymn.IsDeleting = true;
+        await HymnService.DeleteHymn(hymn.HymnId);
+        hymns = await HymnService.GetHymns(null, Page, null);
+        StateHasChanged();
+    }
+
+    private string PringCategories(Hymn hymn)
+    {
+        List<string> categories = hymn.Categories.Select(c => c.CategoryName).ToList();
+        return string.Join(",", categories);
+    }
+}

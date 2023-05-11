@@ -1,0 +1,120 @@
+﻿@page "/listing/{Page}"
+@inject Services.IListingService ListingService
+@inject Services.IUserService UserService
+@inject Microsoft.AspNetCore.Components.NavigationManager UriHelper
+@inject HymnCenter.Client.Shared.PageHistoryState PageHistoryState
+
+<h1>Listings</h1>
+<div class="col-md-7">
+    @if (LoggedIn)
+    {
+        <NavLink href="/listing/createlisting" class="btn btn-sm btn-success mb-2">Add Listing</NavLink>
+    }
+</div>
+<table class="table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Header</th>
+            <th>Footer</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var listing in listings.Results)
+        {
+                <tr>
+                    <td>@listing.ListingId</td>
+                    <td>@listing.Header</td>
+                    <td>@listing.Footer</td>
+                    <td style="white-space: nowrap">
+                        <NavLink href="@($"/listing/viewlisting/{listing.ListingId}")" class="oi oi-eye text-primary mr-3 nounderline"></NavLink>
+                        @if (LoggedIn)
+                        {
+                            <NavLink href="@($"/listing/updatelisting/{listing.ListingId}")" class="oi oi-pencil text-warning mr-2 nounderline"></NavLink>
+
+                            @if (listing.IsDeleting)
+                            {
+                                <button @onclick="@(() => DeleteListing(listing))" disabled="@listing.IsDeleting" class=" btn btn-link oi oi-trash text-danger mr-1 nounderline">
+                                    <span class="spinner-border spinner-border-sm"></span>
+                                </button>
+                            }
+                            else
+                            {
+                                <button @onclick="@(() => DeleteListing(listing))" disabled="@listing.IsDeleting" class=" btn btn-link oi oi-trash text-danger mr-1 nounderline">
+                                    <span></span>
+                                </button>
+                            }
+                        }
+                    </td>
+                </tr>
+        }
+    </tbody>
+</table>
+<Pager Result=@listings PageChanged=PagerPageChanged />
+
+@code {
+    [Parameter]
+    public string Page { get; set; } = "1";
+    [Parameter]
+    public string SearchTerm { get; set; } = string.Empty;
+    protected PagedResult<Listing> listings = new PagedResult<Listing>();
+
+    public bool LoggedIn
+    {
+        get { return UserService.User != null; }
+    }
+
+    protected override void OnInitialized()
+    {
+        PageHistoryState.AddPageToHistory(UriHelper.Uri);
+        base.OnInitialized();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        listings = await ListingService.GetListings(null, Page);
+        PageHistoryState.AddPageToHistory(UriHelper.Uri);
+    }
+
+    protected async Task SearchBoxKeyPress(KeyboardEventArgs ev)
+    {
+        if (ev.Key == "Enter")
+        {
+            await SearchClick();
+        }
+    }
+
+    protected async Task SearchClick()
+    {
+        if (string.IsNullOrEmpty(SearchTerm))
+        {
+            listings = await ListingService.GetListings(null, Page);
+            return;
+        }
+        listings = await ListingService.GetListings(SearchTerm, Page);
+        StateHasChanged();
+    }
+
+    protected async Task ClearSearch()
+    {
+        SearchTerm = string.Empty;
+        listings = await ListingService.GetListings(SearchTerm, Page);
+        PageHistoryState.AddPageToHistory(UriHelper.Uri);
+        StateHasChanged();
+    }
+
+    protected void PagerPageChanged(int page)
+    {
+        UriHelper.NavigateTo("/listing/" + page);
+        PageHistoryState.AddPageToHistory(UriHelper.Uri);
+    }
+
+    private async Task DeleteListing(Listing _listing)
+    {
+        var listing = _listing;
+        listing.IsDeleting = true;
+        await ListingService.DeleteListing(listing.ListingId);
+        listings = await ListingService.GetListings(null, Page);
+        StateHasChanged();
+    }
+}

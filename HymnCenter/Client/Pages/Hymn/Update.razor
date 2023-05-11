@@ -1,0 +1,120 @@
+﻿@page "/hymn/updatehymn/{id}"
+@attribute [Authorize]
+@inject IAlertService AlertService
+@inject IHymnService HymnService
+@inject ICategoryService CategoryService
+@inject NavigationManager navManager
+@inject HymnCenter.Client.Shared.PageHistoryState PageHistoryState
+
+<h1>Edit Hymn</h1>
+<br />
+
+@if (Hymn == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <EditForm Model="@Hymn" OnValidSubmit="@UpdateHymn">
+        <div class="form-group">
+            <label>Title :</label>
+            <div>
+                <InputText id="title" @bind-Value="Hymn.Title" class="form-control col-sm-3" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Scale :</label>
+            <div>
+                <InputText id="scale" @bind-Value="Hymn.Scale" class="form-control col-sm-3" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Lyrics :</label>
+            <div>
+                <InputTextArea id="lyrics" @bind-Value="Hymn.Lyrics" class="form-control col-sm-3" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Categories</label>
+            @foreach (var category in Categories)
+            {
+                <label>
+                    <input type="checkbox" value="@category.CategoryId" checked="@category.IsSelected" @onchange="() => ToggleCategorySelection(category)">
+                    @category.CategoryName
+                </label>
+            }
+        </div>
+        <hr />
+
+        <div class="form-group">
+            <button disabled="@loading" class="btn btn-primary">
+                @if (loading)
+                {
+                    <span class="spinner-border spinner-border-sm mr-1"></span>
+                }
+                @ButtonText
+            </button>
+            @if (PageHistoryState.CanGoBack())
+            {
+                <NavLink href="@PageHistoryState.GetGoBackPage()" class="btn btn-link">Cancel</NavLink>
+            }
+            else
+            {
+                <NavLink href="/hymn/1" class="btn btn-link">Back</NavLink>
+            }
+        </div>
+    </EditForm>
+}
+
+@code {
+
+    private Hymn Hymn = new Hymn();
+    public ICollection<Category> Categories = new List<Category>();
+    [Parameter]
+    public string ButtonText { get; set; } = "Update";
+    public string Page { get; set; } = "1";
+    public bool loading { get; set; } = false;
+    [Parameter]
+    public string Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Hymn = await HymnService.GetHymn(int.Parse(Id));
+        Categories = await CategoryService.GetCategories(null, Page);
+
+        foreach(Category cat in Hymn.Categories)
+        {
+            Categories.FirstOrDefault(c => c.CategoryId == cat.CategoryId).IsSelected = true;
+        }
+    }
+
+    async Task UpdateHymn()
+    {
+        loading = true;
+        try
+        {
+            Hymn.Categories = Categories.Where(c => c.IsSelected).ToList();
+            await HymnService.UpdateHymn(Hymn);
+            AlertService.Success("Hymn updated successfully", keepAfterRouteChange: true);
+            if (PageHistoryState.CanGoBack())
+            {
+                navManager.NavigateTo(PageHistoryState.GetGoBackPage());
+            }
+            else
+            {
+                navManager.NavigateTo("/hymn/1");
+            }
+        }
+        catch (Exception ex)
+        {
+            AlertService.Error(ex.Message);
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    void ToggleCategorySelection(Category category)
+    {
+        category.IsSelected = !category.IsSelected;
+    }
+}

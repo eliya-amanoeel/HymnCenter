@@ -1,0 +1,56 @@
+﻿@page "/listing/updatelisting/{id}"
+@attribute [Authorize]
+@inject IAlertService AlertService
+@inject IListingService ListingService
+@inject NavigationManager navManager
+@inject HymnCenter.Client.Shared.PageHistoryState PageHistoryState
+
+<h1>Edit Listing</h1>
+<br />
+
+<Form ButtonText="Update Listing" listing="@listing" loading="@loading"
+      OnValidSubmit="@UpdateListing" />
+
+@code {
+    bool loading = false;
+
+    [Parameter]
+    public string Id { get; set; }
+
+    Listing listing = new Listing
+        {
+            Header = "",
+            Date = null,
+            Footer = "",
+            Hymns = new List<Hymn>()
+        };
+
+    protected async override Task OnParametersSetAsync()
+    {
+        listing = await ListingService.GetListing(int.Parse(Id));
+    }
+
+    async Task UpdateListing()
+    {
+        loading = true;
+        try
+        {
+            await ListingService.UpdateListing(listing);
+            AlertService.Success("Listing updated successfully", keepAfterRouteChange: true);
+            if (PageHistoryState.CanGoBack())
+            {
+                navManager.NavigateTo(PageHistoryState.GetGoBackPage());
+            }
+            else
+            {
+                navManager.NavigateTo("/listing/1");
+            }
+        }
+        catch (Exception ex)
+        {
+            AlertService.Error(ex.Message);
+            loading = false;
+            StateHasChanged();
+        }
+    }
+}

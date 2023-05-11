@@ -1,0 +1,166 @@
+﻿@using System.ComponentModel.DataAnnotations;
+@inject ICategoryService CategoryService
+@inject IHymnService HymnService
+@inject HymnCenter.Client.Shared.PageHistoryState PageHistoryState
+
+<div class="modal fade show" id="myModal" style="display:block; background-color: rgba(10,10,10,.8);" aria-modal="true" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">@Caption</h4>
+                <button type="button" class="close"
+                        @onclick="@Cancel">
+                    &times;
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Category :</label>
+                    <select id="CategoryId" @onchange="OnCategorySelect" class="form-control">
+                        <option value="0">Please select a category</option>
+                        @foreach (var category in DbCategories)
+                        {
+                            <option value="@category.CategoryId">@category.CategoryName</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Hymn :</label>
+                    <div>
+                        @if (hymnSel == null)
+                        {
+                            // If a category has not been selected, show a disabled dropdown
+                            <div class="form-group">
+                                <select id="CategoryId" class="form-control" disabled>
+                                    <option value="0">Please select a product</option>
+                                </select>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="form-group">
+                                <InputSelect id="CategoryId" @bind-Value="viewModel.HymnId" class="form-control">
+                                    <option value="0">Please select a product</option>
+                                    @foreach (var hymn in hymnSel)
+                                    {
+                                        <option value="@hymn.Value">@hymn.Text</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                @switch (Type)
+                {
+                    case CategoryEnum.Okay:
+                        <button type="button" class="btn btn-primary"
+                        @onclick=@Ok>
+                            OK
+                        </button>
+                        break;
+                    case CategoryEnum.SaveNot:
+                        <button type="button" class="btn btn-primary"
+                        @onclick=@Ok>
+                            Save
+                        </button>
+                        <button type="button" class="btn btn-warning"
+                        @onclick="@Cancel">
+                            Don't Save
+                        </button>
+                        break;
+                    case CategoryEnum.DeleteNot:
+                        <button type="button" class="btn btn-danger"
+                        @onclick=@Ok>
+                            Delete
+                        </button>
+                        <button type="button" class="btn btn-warning"
+                        @onclick="@Cancel">
+                            Don't Delete
+                        </button>
+                        break;
+                }
+            </div>
+        </div>
+    </div>
+</div>
+@code {
+
+    [Parameter]
+    public string Caption { get; set; }
+    [Parameter]
+    public EventCallback<ViewModel> CloseDialog { get; set; }
+    [Parameter]
+    public CategoryEnum Type { get; set; }
+    private ViewModel viewModel = new();
+    private IEnumerable<SelectListItem> catSel = null;
+    private IEnumerable<SelectListItem> hymnSel = null;
+    public ICollection<Category> DbCategories = new List<Category>();
+    public PagedResult<Hymn> DbHymns = new PagedResult<Hymn>();
+
+    public string Page { get; set; } = "1";
+
+    public class ViewModel
+    {
+        [Range(1, double.MaxValue, ErrorMessage = "Please select a category.")]
+        public int CategoryId { get; set; }
+
+        [Range(1, double.MaxValue, ErrorMessage = "Please select a hymn.")]
+        public int HymnId { get; set; }
+
+        public bool Confirm { get; set; }
+    }
+
+    public class SelectListItem
+    {
+        public string Text { get; set; }
+
+        public int Value { get; set; }
+    }
+
+    private Task Cancel()
+    {
+        return CloseDialog.InvokeAsync(null);
+    }
+
+    private Task Ok()
+    {
+        return CloseDialog.InvokeAsync(viewModel);
+    }
+
+    public enum CategoryEnum
+    {
+        Okay,
+        SaveNot,
+        DeleteNot
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        DbCategories = await CategoryService.GetCategories(null, Page);
+    }
+
+    private async Task OnCategorySelect(ChangeEventArgs e)
+    {
+        viewModel.CategoryId = Convert.ToInt32(e.Value);
+
+        if (viewModel.CategoryId == 0)
+        {
+            hymnSel = null;
+        }
+        else
+        {
+            DbHymns = await HymnService.GetHymns(null, Page, viewModel.CategoryId);
+            
+            
+            hymnSel = DbHymns.Results.Select(
+                    c => new SelectListItem
+                        {
+                            Text = c.Title,
+                            Value = c.HymnId
+                        });
+        }        
+    }
+}

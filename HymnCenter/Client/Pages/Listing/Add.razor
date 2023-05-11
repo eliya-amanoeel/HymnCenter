@@ -1,0 +1,176 @@
+﻿@page "/listing/createlisting"
+@attribute [Authorize]
+@inject IAlertService AlertService
+@inject IListingService ListingService
+@inject IHymnService HymnService
+@inject ICategoryService CategoryService
+@inject Services.IUserService UserService
+@inject NavigationManager navManager
+@inject HymnCenter.Client.Shared.PageHistoryState PageHistoryState
+
+<h1>Create Listing</h1>
+<br />
+
+<EditForm Model="@listing" OnValidSubmit="@CreateListing">
+@*    <FluentValidator TValidator="PersonValidator" />
+*@    <div class="form-group">
+        <label>Header :</label>
+        <div>
+            <InputText @bind-Value="@listing.Header" class="form-control col-sm-3" />
+            <ValidationMessage For="@(() => listing.Header)" />
+        </div>
+    </div>
+    <div class="form-group">
+        <label>Date :</label>
+        <div>
+            <InputDate @bind-Value="@listing.Date" class="form-control col-sm-3" />
+            <ValidationMessage For="@(() => listing.Date)" />
+        </div>
+    </div>
+    <div class="form-group ">
+        <div>
+            <label>Footer :</label>
+            <div>
+                <InputText @bind-Value="@listing.Footer" class="form-control col-sm-3" />
+                <ValidationMessage For="@(() => listing.Footer)" />
+            </div>
+        </div>
+    </div>
+
+    <hr/>
+
+    <h3>Hymns</h3>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th style="width:33%">Category</th>
+                <th style="width:33%">Title</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var catHym in categoryHymnList)
+
+            {
+            <tr>
+                <td>@catHym.Category.CategoryName</td>
+                <td>@catHym.Hymn.Title</td>
+                <button @onclick="@(() => DeleteEntry(catHym))" disabled="@listing.IsDeleting" class=" btn btn-link oi oi-trash text-danger mr-1 nounderline">
+                </button>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <ValidationMessage For="@(() => listing.Hymns)" />
+    
+    <div class="form-group">
+        <a class="btn btn-warning" @onclick="() =>
+                        OpenDialog()">
+            Add Hymn
+        </a>
+    </div>
+    <hr />
+
+    <div class="form-group">
+        <button disabled="@loading" class="btn btn-primary">
+            @if (loading) 
+            {
+                <span class="spinner-border spinner-border-sm mr-1"></span>
+            }
+            @ButtonText
+        </button>
+        @if (PageHistoryState.CanGoBack()){
+            <NavLink href="@PageHistoryState.GetGoBackPage()" class="btn btn-link">Cancel</NavLink>
+        }
+        else{
+            <NavLink href="/listing/1" class="btn btn-link">Back</NavLink>
+        }
+    </div>
+
+</EditForm>
+@if (DialogIsOpen)
+{
+    <Dialog        
+        Caption="Add hymn to the listing"
+        CloseDialog="SaveDialog"
+        Type="Dialog.CategoryEnum.Okay">
+    </Dialog>
+}
+@code {
+    public bool LoggedIn
+    {
+        get { return UserService.User != null; }
+    }
+    private bool DialogIsOpen = false;
+    public string Page { get; set; } = "1";
+    public Listing listing = new Listing();
+    public List<CategoryHymn> categoryHymnList = new List<CategoryHymn>();
+
+    public class CategoryHymn
+    {
+        public Category Category = new Category();
+        public Hymn Hymn = new Hymn();
+    }
+    public ICollection<Category> Categories = new List<Category>();
+    [Parameter]
+    public string ButtonText { get; set; } = "Save";
+    [Parameter]
+    public bool loading {get; set;} = false;
+    [Parameter]
+    public EventCallback OnValidSubmit { get; set; }
+
+    protected async override Task OnInitializedAsync()
+    {
+        Categories = await CategoryService.GetCategories(null, Page);
+    }
+
+    async Task CreateListing()
+    {
+        loading = true;
+        try
+        {
+            listing.Hymns = categoryHymnList.Select(h => h.Hymn).ToList();
+            await ListingService.AddListing(listing);
+            AlertService.Success("Listing added successfully", keepAfterRouteChange: true);
+            if (PageHistoryState.CanGoBack())
+            {
+                navManager.NavigateTo(PageHistoryState.GetGoBackPage());
+            }
+            else
+            {
+                navManager.NavigateTo("/listing/1");
+            }
+        }
+        catch (Exception ex)
+        {
+            AlertService.Error(ex.Message);
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenDialog()
+    {
+        DialogIsOpen = true;
+    }
+
+    private async Task SaveDialog(Dialog.ViewModel returnParams)
+    {
+        if (returnParams != null)
+        {
+            var hymn = await HymnService.GetHymn(returnParams.HymnId);
+            var category = await CategoryService.GetCategory(returnParams.CategoryId);
+            categoryHymnList.Add(new CategoryHymn
+                {
+                    Category = category,
+                    Hymn = hymn
+                });
+        }
+        DialogIsOpen = false;
+    }
+
+    private void DeleteEntry(CategoryHymn categoryHymn)
+    {
+        categoryHymnList.Remove(categoryHymn);
+    }
+}
